@@ -8,6 +8,10 @@ elect a leader, serve versioned reads and writes through the replicated
 log, survive the leader being killed, and recover a crashed server from
 its persisted state.
 
+Prefer a browser? An animated illustration of these exact scenes lives
+at [dahalab1.github.io/raft-demo](https://dahalab1.github.io/raft-demo/),
+served by GitHub Pages from `docs/` in this repo.
+
 ## Run it
 
 ```
