@@ -1,6 +1,8 @@
 package kvraft
 
 import (
+	"sync"
+
 	"raft-kv/kvraft/rsm"
 	"raft-kv/kvsrv/rpc"
 	"raft-kv/labgob"
@@ -18,8 +20,9 @@ type KVServer struct {
 	me  int
 	rsm *rsm.RSM
 
-	// no mutex: DoOp is the only code that touches kvs, and it is only
-	// ever called by the rsm's single reader goroutine, one op at a time
+	// The RSM is the only writer. The demo also inspects applied state
+	// to verify recovery; protect that diagnostic read from the applier.
+	stateMu sync.RWMutex
 	kvs map[string]entry
 }
 
@@ -29,6 +32,8 @@ type KVServer struct {
 // https://go.dev/tour/methods/16
 // https://go.dev/tour/methods/15
 func (kv *KVServer) DoOp(req any) any {
+	kv.stateMu.Lock()
+	defer kv.stateMu.Unlock()
 	switch args := req.(type) {
 	case rpc.GetArgs:
 		e, ok := kv.kvs[args.Key]

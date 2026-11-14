@@ -3,342 +3,64 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>raft-kv · consensus, animated</title>
-<meta name="description" content="An animated illustration of the raft-kv project: leader election, log replication, failure, and recovery.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23d9a648' stroke-width='3'/%3E%3C/svg%3E">
-<style>
-  :root {
-    --bg: #0a0d12;
-    --ink: #e8e3d9;
-    --muted: #8b93a1;
-    --faint: #4a5361;
-    --line: #1d232e;
-    --gold: #d9a648;
-    --blue: #7aa2c9;
-    --red: #c96a5e;
-    --serif: 'Charter', 'Iowan Old Style', 'Palatino', Georgia, serif;
-    --mono: ui-monospace, 'SF Mono', 'Menlo', 'Cascadia Code', monospace;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { background: var(--bg); }
-  body {
-    min-height: 100vh;
-    display: flex; flex-direction: column; align-items: center;
-    color: var(--ink);
-    font-family: var(--serif);
-    padding: 3.5rem 1.25rem 2rem;
-  }
-  header { text-align: center; margin-bottom: 2.25rem; }
-  h1 {
-    font-size: 2.1rem; font-weight: 500; letter-spacing: .01em;
-  }
-  h1 .kv { color: var(--gold); }
-  .sub {
-    margin-top: .6rem;
-    font-family: var(--mono); font-size: .78rem;
-    color: var(--muted); letter-spacing: .14em; text-transform: uppercase;
-  }
-  main { width: 100%; max-width: 660px; }
-  figure {
-    border: 1px solid var(--line); border-radius: 10px;
-    background: radial-gradient(120% 100% at 50% 0%, #0e1219 0%, var(--bg) 70%);
-    overflow: hidden;
-  }
-  svg { display: block; width: 100%; height: auto; }
-
-  #narration {
-    font-family: var(--mono); font-size: .82rem; line-height: 1.55;
-    color: var(--muted);
-    min-height: 3.9em;
-    margin: 1.4rem .25rem 0;
-    text-align: center;
-    transition: opacity .35s ease;
-  }
-  #narration strong { color: var(--ink); font-weight: 500; }
-
-  #controls {
-    display: flex; align-items: center; justify-content: center;
-    gap: 1.1rem; margin-top: 1.1rem;
-  }
-  #playpause {
-    appearance: none; background: none;
-    border: 1px solid var(--line); border-radius: 999px;
-    width: 34px; height: 34px; cursor: pointer;
-    color: var(--muted); display: grid; place-items: center;
-    transition: color .2s, border-color .2s;
-  }
-  #playpause:hover { color: var(--ink); border-color: var(--faint); }
-  #scenes { display: flex; gap: .5rem; }
-  .scene-dot {
-    width: 5px; height: 5px; border-radius: 50%;
-    background: var(--faint); opacity: .5; transition: all .3s;
-  }
-  .scene-dot.on { background: var(--gold); opacity: 1; }
-
-  footer {
-    margin-top: 2.75rem; max-width: 560px; text-align: center;
-    font-family: var(--mono); font-size: .72rem; line-height: 1.7;
-    color: var(--faint);
-  }
-  footer a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
-  footer a:hover { color: var(--ink); }
-  footer code { color: var(--muted); }
-
-  /* ---- stage ---- */
-  text { font-family: var(--mono); }
-  .node circle.body {
-    fill: #101520; stroke: var(--faint); stroke-width: 1.5;
-    transition: stroke .4s, fill .4s, opacity .4s;
-  }
-  .node .term { fill: var(--muted); font-size: 15px; transition: fill .4s; }
-  .node .name { fill: var(--faint); font-size: 10px; letter-spacing: .1em; }
-  .node.candidate circle.body { stroke: var(--gold); stroke-dasharray: 4 5; }
-  .node.leader circle.body { stroke: var(--gold); stroke-width: 2; fill: #1a1610; }
-  .node.leader .term { fill: var(--gold); }
-  .node.dead { opacity: .28; }
-  .node.dead circle.body { stroke: var(--red); stroke-dasharray: 2 4; }
-
-  .slot {
-    fill: none; stroke: var(--line); stroke-width: 1;
-    transition: fill .5s, stroke .5s;
-  }
-  .slot.appended { stroke: var(--muted); }
-  .slot.committed { fill: var(--gold); stroke: var(--gold); fill-opacity: .85; }
-
-  .pulse {
-    fill: none; stroke: var(--gold); stroke-width: 1;
-    animation: pulse 1.4s ease-out forwards;
-    pointer-events: none;
-  }
-  @keyframes pulse {
-    from { r: 30; opacity: .45; }
-    to   { r: 58; opacity: 0; }
-  }
-  .flash-red circle.body { stroke: var(--red) !important; }
-</style>
+<meta name="theme-color" content="#101714">
+<meta name="description" content="Can your saved meeting plan survive a server failure? Follow Raft through leader election, agreement, failure, and recovery.">
+<title>Raft — will your saved plan survive?</title>
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="./assets/inter-variable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./style.css">
+<script type="module" src="./app.mjs"></script>
 </head>
 <body>
-
-<header>
-  <h1>raft<span class="kv">-kv</span></h1>
-  <p class="sub">consensus, animated</p>
+<a class="skip-link" href="#demo">Skip to the demo</a>
+<div class="page">
+<header class="masthead">
+<a class="wordmark" href="#" aria-label="Raft, back to top">raft<span class="wordmark-sub">a visual guide</span></a>
+<span class="masthead-note">An interactive explanation of Raft</span>
 </header>
-
 <main>
-  <figure aria-label="Animated diagram of a three-server Raft cluster">
-    <svg id="stage" viewBox="0 0 640 460" role="img"></svg>
-  </figure>
-  <p id="narration" aria-live="polite"></p>
-  <div id="controls">
-    <button id="playpause" aria-label="Pause animation"></button>
-    <div id="scenes" aria-hidden="true"></div>
-  </div>
+<section class="intro" aria-labelledby="page-title">
+<div><h1 id="page-title">You press Save.<br><span>What happens next?</span></h1>
+<p class="intro-copy">Imagine an app where you and a friend keep your meeting plan. When you save “Meet at the library,” you expect your friend to be able to open it later—even if one of the app’s servers stops working. Follow what happens behind that Save button, one step at a time.</p></div>
+</section>
+<section class="scenario-picker" aria-labelledby="scenario-title">
+<div class="scenario-picker-heading"><h2 id="scenario-title">Choose a walkthrough</h2><p>New to Raft? Start with the first. It builds up from the basics.</p></div>
+<div class="scenario-options">
+<button class="scenario-option" data-scenario="story" aria-pressed="true"><span>One server fails</span><small>Start here · from pressing Save to surviving a failure</small></button>
+<button class="scenario-option" data-scenario="quorum" aria-pressed="false"><span>Two servers fail</span><small>Why the app has to wait</small></button>
+<button class="scenario-option" data-scenario="version" aria-pressed="false"><span>Two people change the plan</span><small>Why an old edit should not overwrite a new plan</small></button>
+</div>
+</section>
+<section id="demo" class="demo" aria-label="Interactive three-server Raft demonstration">
+<nav class="chapters" id="chapters" aria-label="Story chapters"></nav>
+<div class="story-copy" aria-live="polite" aria-atomic="true">
+<div class="step-number" id="step-number">01</div>
+<div class="story-text"><h2 id="step-title">You type a plan into an app.</h2><p id="step-text">Imagine you and a friend use an app to keep your meeting plans in one place. You type “Meet at the library.” It is still a draft. What has to happen before the app can honestly tell you it is saved?</p></div>
+<div class="agreement" id="agreement"><span id="agreement-label">MAJORITY RULE</span><strong id="agreement-value">2 of 3</strong><span id="agreement-note">servers must agree</span></div>
+</div>
+<div class="stage-top"><div class="scenario-heading"><span class="stage-label" id="scenario-label">MEET THE SERVERS</span><button id="back-to-story" class="back-to-story" hidden>← Back to story</button></div><span class="availability" id="availability">3 of 3 online · majority needs 2</span></div>
+<p class="reading-guide" id="reading-guide">The plan below is still on your device. Nothing has been saved on a server.</p>
+<div class="network" id="network" aria-label="Three servers in illustrative locations">
+<img class="map" src="./assets/map.svg" alt="" aria-hidden="true">
+<div class="client" id="client"><span class="client-label">THE APP ON YOUR DEVICE</span><span class="client-request" id="client-request">Meet at the library</span><span class="client-status" id="client-status">Not saved yet</span></div>
+<svg class="connections" id="connections" aria-hidden="true"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="currentColor" stroke-width="1.5"/></marker></defs><g id="routes"></g></svg>
+<div class="servers" id="servers"></div>
+<div class="message-caption" id="message-caption" aria-hidden="true"></div>
+</div>
+<div class="playback">
+<div class="playback-buttons"><button class="icon-button" id="previous" aria-label="Previous step" title="Previous step">← Previous</button><button class="primary-button" id="next" aria-label="Next step">See what happens next →</button><button class="text-button" id="play">Play automatically <span aria-hidden="true">▶</span></button><button class="text-button" id="restart">Restart</button></div>
+<div class="playback-meta"><span id="position"></span><label class="speed-label">Speed <select id="speed" aria-label="Playback speed"><option value="1">1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+</div>
+<div class="timeline" id="timeline" role="progressbar" aria-label="Story progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress"></div></div>
+<noscript><p class="noscript">This guided demo needs JavaScript. Servers first elect a leader. Two of three servers must agree before a new plan is confirmed. After a leader fails, the other two elect a replacement; the returning server catches up from the agreed log.</p></noscript>
+</section>
+<details class="technical" id="technical">
+<summary>Technical details <span>For a closer look at this step</span><b aria-hidden="true">+</b></summary>
+<div class="technical-content"><p id="technical-note"></p><div class="log-grid" id="logs"></div><p class="log-legend"><span class="log-sample stored"></span>Stored, not applied <span class="log-sample applied"></span>Applied to this server’s value</p></div>
+</details>
+
 </main>
-
-<footer>
-  <p>An illustration of the protocol, not a recording. The real thing runs
-  in fifteen seconds: <code>go&nbsp;run&nbsp;.</code> in
-  <a href="https://github.com/DahalAb1/raft-demo">raft-demo</a>.
-  The full build story, bug by bug, lives in
-  <a href="https://github.com/DahalAb1/raft-kv">raft-kv</a>.</p>
-</footer>
-
-<script>
-"use strict";
-const SVG = "http://www.w3.org/2000/svg";
-const stage = document.getElementById("stage");
-const narration = document.getElementById("narration");
-const btn = document.getElementById("playpause");
-const sceneBox = document.getElementById("scenes");
-
-const N_SCENES = 6;
-const NODES = [
-  { name: "server-0", x: 320, y: 128 },
-  { name: "server-1", x: 150, y: 330 },
-  { name: "server-2", x: 490, y: 330 },
-];
-const CLIENT = { x: 36, y: 128 };
-
-function el(tag, attrs, parent) {
-  const e = document.createElementNS(SVG, tag);
-  for (const k in attrs) e.setAttribute(k, attrs[k]);
-  (parent || stage).appendChild(e);
-  return e;
-}
-
-/* ---- build the scene ---- */
-const nodes = NODES.map((n, i) => {
-  const g = el("g", { class: "node" });
-  el("circle", { class: "body", cx: n.x, cy: n.y, r: 30 }, g);
-  const term = el("text", { class: "term", x: n.x, y: n.y + 5, "text-anchor": "middle" }, g);
-  term.textContent = "0";
-  const name = el("text", { class: "name", x: n.x, y: n.y + 52, "text-anchor": "middle" }, g);
-  name.textContent = n.name;
-  const slots = [];
-  for (let s = 0; s < 2; s++) {
-    slots.push(el("rect", {
-      class: "slot", x: n.x - 14 + s * 16, y: n.y + 60, width: 12, height: 12, rx: 2,
-    }, g));
-  }
-  return { ...n, g, termEl: term, slots, id: i };
-});
-
-/* ---- state helpers ---- */
-function setRole(i, role) { nodes[i].g.setAttribute("class", "node " + role); }
-function setTerm(i, t) { nodes[i].termEl.textContent = t; }
-function setSlot(i, s, state) { nodes[i].slots[s].setAttribute("class", "slot " + state); }
-function resetAll() {
-  nodes.forEach((n, i) => {
-    setRole(i, ""); setTerm(i, 0);
-    n.slots.forEach((_, s) => setSlot(i, s, ""));
-  });
-}
-function pulse(i) {
-  const p = el("circle", { class: "pulse", cx: nodes[i].x, cy: nodes[i].y, r: 30 });
-  setTimeout(() => p.remove(), 1500);
-}
-
-/* ---- timing, pause, reduced motion ---- */
-let paused = false;
-const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-function drawButton() {
-  btn.innerHTML = paused
-    ? '<svg width="11" height="12" viewBox="0 0 11 12"><path d="M1 1 L10 6 L1 11 Z" fill="currentColor"/></svg>'
-    : '<svg width="10" height="12" viewBox="0 0 10 12"><rect width="3" height="12" fill="currentColor"/><rect x="7" width="3" height="12" fill="currentColor"/></svg>';
-  btn.setAttribute("aria-label", paused ? "Play animation" : "Pause animation");
-}
-btn.addEventListener("click", () => { paused = !paused; drawButton(); });
-if (reduced) paused = true;
-drawButton();
-
-const frame = () => new Promise(requestAnimationFrame);
-async function gate() { while (paused) await frame(); }
-async function sleep(ms) {
-  await gate();
-  const t0 = performance.now();
-  let elapsed = 0, last = t0;
-  while (elapsed < ms) {
-    await frame();
-    const now = performance.now();
-    if (!paused) elapsed += now - last;
-    last = now;
-  }
-}
-
-/* ---- message dots ---- */
-async function dot(from, to, opts = {}) {
-  const d = el("circle", {
-    r: opts.big ? 5.5 : 4,
-    fill: opts.color || "var(--blue)",
-    cx: from.x, cy: from.y, opacity: 0,
-  });
-  const dur = opts.dur || 620;
-  const t0 = performance.now();
-  let p = 0, last = t0;
-  while (p < 1) {
-    await frame();
-    const now = performance.now();
-    if (!paused) p = Math.min(1, p + (now - last) / dur);
-    last = now;
-    const e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // easeInOutQuad
-    d.setAttribute("cx", from.x + (to.x - from.x) * e);
-    d.setAttribute("cy", from.y + (to.y - from.y) * e);
-    d.setAttribute("opacity", Math.min(1, Math.min(p, 1 - p) * 8));
-  }
-  d.remove();
-}
-const toAll = (from, others, opts) => Promise.all(others.map(i => dot(from, nodes[i], opts)));
-
-/* ---- narration & progress ---- */
-const dots = [];
-for (let i = 0; i < N_SCENES; i++) {
-  const d = document.createElement("div");
-  d.className = "scene-dot"; sceneBox.appendChild(d); dots.push(d);
-}
-async function narrate(html, sceneIdx) {
-  narration.style.opacity = 0;
-  await sleep(320);
-  narration.innerHTML = html;
-  if (sceneIdx !== undefined) dots.forEach((d, i) => d.className = "scene-dot" + (i <= sceneIdx ? " on" : ""));
-  narration.style.opacity = 1;
-}
-
-/* ---- heartbeats during "idle" stretches ---- */
-async function heartbeats(leader, others, rounds) {
-  for (let r = 0; r < rounds; r++) {
-    pulse(leader);
-    await toAll(nodes[leader], others, { dur: 480 });
-    await sleep(420);
-  }
-}
-
-/* ---- the six scenes ---- */
-async function run() {
-  for (;;) {
-    resetAll();
-
-    await narrate("<strong>Three servers boot as followers.</strong><br>No leader exists; each waits a randomized election timeout.", 0);
-    await sleep(2600);
-
-    await narrate("<strong>server-0's timer fires first.</strong><br>It becomes a candidate for term 1 and asks the others for votes.", 1);
-    setRole(0, "candidate"); setTerm(0, 1); pulse(0);
-    await sleep(700);
-    await toAll(nodes[0], [1, 2]);
-    setTerm(1, 1); setTerm(2, 1);
-    await Promise.all([dot(nodes[1], nodes[0]), dot(nodes[2], nodes[0])]);
-    setRole(0, "leader");
-    await narrate("<strong>A majority votes yes: server-0 leads term 1.</strong><br>Heartbeats now keep the followers' timers quiet.", 1);
-    await heartbeats(0, [1, 2], 2);
-
-    await narrate('<strong>A client writes: Put("answer", "42", version 0).</strong><br>The leader appends the entry and replicates it.', 2);
-    await dot(CLIENT, nodes[0], { color: "var(--gold)", big: true });
-    setSlot(0, 0, "appended");
-    await sleep(350);
-    await toAll(nodes[0], [1, 2]);
-    setSlot(1, 0, "appended"); setSlot(2, 0, "appended");
-    await Promise.all([dot(nodes[1], nodes[0]), dot(nodes[2], nodes[0])]);
-    [0, 1, 2].forEach(i => setSlot(i, 0, "committed"));
-    await narrate("<strong>A majority holds the entry: it is committed.</strong><br>Only now is it applied and the client answered OK.", 2);
-    await dot(nodes[0], CLIENT, { color: "var(--gold)", big: true });
-    await sleep(1400);
-
-    await narrate('<strong>A second write still claims version 0.</strong><br>The key is at version 1 now: the store refuses with ErrVersion.', 3);
-    await dot(CLIENT, nodes[0], { color: "var(--gold)", big: true });
-    nodes[0].g.classList.add("flash-red");
-    await sleep(600);
-    nodes[0].g.classList.remove("flash-red");
-    await dot(nodes[0], CLIENT, { color: "var(--red)", big: true });
-    await narrate("Versioned writes are compare-and-swap: a stale write is<br>rejected instead of silently clobbering newer state.", 3);
-    await sleep(2300);
-
-    await narrate("<strong>The leader dies.</strong><br>Heartbeats stop; the survivors' election timers start draining.", 4);
-    setRole(0, "dead");
-    await sleep(2000);
-    setRole(1, "candidate"); setTerm(1, 2); pulse(1);
-    await narrate("<strong>server-1 times out first and campaigns for term 2.</strong><br>Two of three servers are a majority; the cluster moves on.", 4);
-    await dot(nodes[1], nodes[2]);
-    setTerm(2, 2);
-    await dot(nodes[2], nodes[1]);
-    setRole(1, "leader");
-    await narrate("<strong>server-1 leads term 2. The data survived:</strong><br>the committed entry lives on a majority, so no election can lose it.", 4);
-    await heartbeats(1, [2], 2);
-
-    await narrate("<strong>The dead server restarts from its own disk.</strong><br>Term, vote, and log were persisted before every reply it ever sent.", 5);
-    setRole(0, ""); setTerm(0, 2);
-    await sleep(900);
-    await dot(nodes[1], nodes[0]);
-    setSlot(0, 1, "appended"); setSlot(1, 1, "appended"); setSlot(2, 1, "appended");
-    await dot(nodes[0], nodes[1]);
-    [0, 1, 2].forEach(i => setSlot(i, 1, "committed"));
-    await narrate("<strong>It replays the log and catches up as a follower.</strong><br>One crash, one election, one restart; the store never lied.", 5);
-    await heartbeats(1, [0, 2], 2);
-    await sleep(1800);
-
-    await narrate("Replaying from the top.");
-    await sleep(1200);
-  }
-}
-run();
-</script>
+<footer><span>raft-kv <span class="footer-separator">/</span> how servers agree on your saved changes</span><p>A guided illustration of Raft. Locations and timing are illustrative.</p></footer>
+</div>
 </body>
 </html>
