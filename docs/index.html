@@ -1,66 +1,11 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#101714">
-<meta name="description" content="Can your saved meeting plan survive a server failure? Follow Raft through leader election, agreement, failure, and recovery.">
-<title>Raft — will your saved plan survive?</title>
-<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="./assets/inter-variable.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="./style.css">
-<script type="module" src="./app.mjs"></script>
-</head>
-<body>
-<a class="skip-link" href="#demo">Skip to the demo</a>
-<div class="page">
-<header class="masthead">
-<a class="wordmark" href="#" aria-label="Raft, back to top">raft<span class="wordmark-sub">a visual guide</span></a>
-<span class="masthead-note">An interactive explanation of Raft</span>
-</header>
-<main>
-<section class="intro" aria-labelledby="page-title">
-<div><h1 id="page-title">You press Save.<br><span>What happens next?</span></h1>
-<p class="intro-copy">Imagine an app where you and a friend keep your meeting plan. When you save “Meet at the library,” you expect your friend to be able to open it later—even if one of the app’s servers stops working. Follow what happens behind that Save button, one step at a time.</p></div>
-</section>
-<section class="scenario-picker" aria-labelledby="scenario-title">
-<div class="scenario-picker-heading"><h2 id="scenario-title">Choose a walkthrough</h2><p>New to Raft? Start with the first. It builds up from the basics.</p></div>
-<div class="scenario-options">
-<button class="scenario-option" data-scenario="story" aria-pressed="true"><span>One server fails</span><small>Start here · from pressing Save to surviving a failure</small></button>
-<button class="scenario-option" data-scenario="quorum" aria-pressed="false"><span>Two servers fail</span><small>Why the app has to wait</small></button>
-<button class="scenario-option" data-scenario="version" aria-pressed="false"><span>Two people change the plan</span><small>Why an old edit should not overwrite a new plan</small></button>
-</div>
-</section>
-<section id="demo" class="demo" aria-label="Interactive three-server Raft demonstration">
-<nav class="chapters" id="chapters" aria-label="Story chapters"></nav>
-<div class="story-copy" aria-live="polite" aria-atomic="true">
-<div class="step-number" id="step-number">01</div>
-<div class="story-text"><h2 id="step-title">You type a plan into an app.</h2><p id="step-text">Imagine you and a friend use an app to keep your meeting plans in one place. You type “Meet at the library.” It is still a draft. What has to happen before the app can honestly tell you it is saved?</p></div>
-<div class="agreement" id="agreement"><span id="agreement-label">MAJORITY RULE</span><strong id="agreement-value">2 of 3</strong><span id="agreement-note">servers must agree</span></div>
-</div>
-<div class="stage-top"><div class="scenario-heading"><span class="stage-label" id="scenario-label">MEET THE SERVERS</span><button id="back-to-story" class="back-to-story" hidden>← Back to story</button></div><span class="availability" id="availability">3 of 3 online · majority needs 2</span></div>
-<p class="reading-guide" id="reading-guide">The plan below is still on your device. Nothing has been saved on a server.</p>
-<div class="network" id="network" aria-label="Three servers in illustrative locations">
-<img class="map" src="./assets/map.svg" alt="" aria-hidden="true">
-<div class="client" id="client"><span class="client-label">THE APP ON YOUR DEVICE</span><span class="client-request" id="client-request">Meet at the library</span><span class="client-status" id="client-status">Not saved yet</span></div>
-<svg class="connections" id="connections" aria-hidden="true"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="currentColor" stroke-width="1.5"/></marker></defs><g id="routes"></g></svg>
-<div class="servers" id="servers"></div>
-<div class="message-caption" id="message-caption" aria-hidden="true"></div>
-</div>
-<div class="playback">
-<div class="playback-buttons"><button class="icon-button" id="previous" aria-label="Previous step" title="Previous step">← Previous</button><button class="primary-button" id="next" aria-label="Next step">See what happens next →</button><button class="text-button" id="play">Play automatically <span aria-hidden="true">▶</span></button><button class="text-button" id="restart">Restart</button></div>
-<div class="playback-meta"><span id="position"></span><label class="speed-label">Speed <select id="speed" aria-label="Playback speed"><option value="1">1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
-</div>
-<div class="timeline" id="timeline" role="progressbar" aria-label="Story progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress"></div></div>
-<noscript><p class="noscript">This guided demo needs JavaScript. Servers first elect a leader. Two of three servers must agree before a new plan is confirmed. After a leader fails, the other two elect a replacement; the returning server catches up from the agreed log.</p></noscript>
-</section>
-<details class="technical" id="technical">
-<summary>Technical details <span>For a closer look at this step</span><b aria-hidden="true">+</b></summary>
-<div class="technical-content"><p id="technical-note"></p><div class="log-grid" id="logs"></div><p class="log-legend"><span class="log-sample stored"></span>Stored, not applied <span class="log-sample applied"></span>Applied to this server’s value</p></div>
-</details>
-
-</main>
-<footer><span>raft-kv <span class="footer-separator">/</span> how servers agree on your saved changes</span><p>A guided illustration of Raft. Locations and timing are illustrative.</p></footer>
-</div>
-</body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f5f3ee"><meta name="description" content="Follow your own one-word message through five servers. An interactive introduction to Raft, leader election, majority agreement, and recovery."><title>How servers agree — a Raft demonstration</title><link rel="icon" href="./assets/favicon.svg" type="image/svg+xml"><link rel="preload" href="./assets/nunito-sans.ttf" as="font" type="font/ttf" crossorigin><link rel="stylesheet" href="./style.css"><script type="module" src="./app.mjs"></script></head>
+<body><a class="skip" href="#main">Skip to the demonstration</a><div class="page">
+<header><nav class="navigation" aria-label="Explore how Raft works"><a href="#introduction" data-section="introduction" aria-current="page">Introduction</a><a href="#leader-election" data-section="leader-election">Leader Election</a><a href="#persistence" data-section="persistence">Persistence</a><a href="#failure" data-section="failure">Hardware / Network Failure</a><a href="#experiment" data-section="experiment">Experiment</a></nav></header>
+<main id="main"><section class="scene-heading"><p id="section-context" class="section-context">First, the problem these servers need to solve.</p><h1 id="scene-title">Your friends may reach different servers.</h1><p id="opening-context">An app can run on many servers in different places. You and your friends may reach different ones, but should still find the same saved message. Raft helps those servers agree. Let’s see why they need it.</p></section>
+<form id="setup" class="setup"><div class="setup-fields"><label>Your name<input id="sender" name="sender" value="You" maxlength="20" autocomplete="off" required></label><label class="friends-field">Friends’ names <span>up to three, separated by commas</span><input id="friends" name="friends" value="Maya, Sam, Noor" maxlength="64" autocomplete="off" required></label><label>Your one-word message<input id="word" name="word" value="Hello" maxlength="14" autocomplete="off" required></label></div><div class="setup-bottom"><button class="subtle" id="random-friends" type="button">Make some friends for me ↻</button><span>These names stay in your browser.</span></div><p id="setup-error" class="error" role="alert" hidden></p></form>
+<div class="message-context" id="message-context" hidden><span id="message-context-text"></span><button id="edit-message" class="subtle">Change names or word</button></div>
+<section class="demonstration" aria-label="Five servers and your message"><div class="diagram-top"><span id="diagram-label">Five computers behind the same app</span><span id="diagram-status">Waiting for your word</span></div><div class="diagram" id="diagram" role="group" aria-label="Five servers: West, Central, East, North, and South"></div><div id="majority" class="majority" hidden><span id="majority-label"></span><strong id="majority-value"></strong><small id="majority-note"></small></div><div class="explanation" id="explanation" aria-live="polite" aria-atomic="true"><span>What’s happening</span><p id="explanation-text">Name your friends or use the examples above. Choose one word, then send it. We’ll follow what happens inside the servers, one step at a time.</p></div></section>
+<div id="story-controls" class="story-controls"><button id="previous" class="secondary" disabled>← Back</button><button id="replay" class="subtle" hidden>Replay this exchange ↻</button><button id="next" class="primary" type="submit" form="setup">Send your word <span aria-hidden="true">→</span></button></div>
+<section id="experiment-controls" class="experiment-controls" hidden aria-label="Experiment controls"><form id="experiment-form"><label for="experiment-word">Send another word</label><div><input id="experiment-word" maxlength="14" value="Again" autocomplete="off" required><button id="send-word" class="primary" type="submit">Send →</button></div><p id="experiment-feedback" role="status">The current word is saved. Try stopping the leader.</p></form><div class="experiment-buttons"><button id="stop-leader" class="secondary">Stop the leader</button><button id="restore-all" class="secondary">Restore everyone</button><button id="pause" class="subtle">Pause</button><button id="reset" class="subtle">Reset</button></div><div class="server-controls"><label for="selected-server">Choose a server<select id="selected-server"><option value="0">West</option><option value="1">Central</option><option value="2">East</option><option value="3">North</option><option value="4">South</option></select></label><button id="toggle-power" class="subtle">Stop West</button><button id="toggle-network" class="subtle">Disconnect West</button></div></section>
+<details class="details" id="details"><summary>A closer look <span>Optional details about this demonstration</span><b aria-hidden="true">+</b></summary><div class="details-body"><p id="detail-explanation">The circles are servers. Their role can change; their names stay the same. Arrows show who is talking, and the label above them tells you what is being sent.</p><div id="inspector" class="inspector"></div><p>This is an educational browser model of Abhinesh Dahal’s Raft key/value project in Go. It is not a live Go cluster. Timing is slowed; labels are illustrative locations. The runnable Go demo retains protocol state in simulated, in-memory storage. It does not provide real disk durability.</p><p>The browser experiment uses five fixed members, crash/restart, and per-server connection loss. It omits snapshots and full read execution, and deduplicates one app request at a time for clarity. The Go service uses version checks and can return an uncertain result after a lost reply.</p></div></details>
+</main><footer><span>Abhinesh Dahal · raft-kv in Go</span><span>Five servers · a majority of three</span></footer><noscript><p>Enable JavaScript to use this demonstration. Raft elects a leader and requires a majority to agree before confirming a change. A five-server group can keep working with two unavailable members when the other three can communicate.</p></noscript></div></body></html>

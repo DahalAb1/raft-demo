@@ -1,220 +1,98 @@
-import { scenarios, places, chapterStart, presentation, readingDuration } from './story.mjs';
-
-const $ = id => document.getElementById(id);
-const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const svgNS = 'http://www.w3.org/2000/svg';
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-let scenario = 'story', index = 0, playing = false, elapsed = 0, previousTime = 0, speed = 1, request = null;
-let routes = [];
-const current = () => scenarios[scenario].frames[index];
-
-function svg(tag, attrs) {
-  const element = document.createElementNS(svgNS, tag);
-  for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, value);
-  return element;
+import {sections,defaults,validateProfile,buildStory} from './story.mjs';
+import {Cluster,names} from './cluster.mjs';
+import {ClusterView,escapeHTML as esc} from './cluster-view.mjs';
+const $=id=>document.getElementById(id);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+let profile=structuredClone(defaults),frames,index=0,section='introduction',cluster=null,playing=false,last=0,transition=null,raf=null,eventId=-1,inspectorSignature='';
+try{const saved=JSON.parse(sessionStorage.getItem('raft-profile'));if(saved){const parsed=validateProfile(saved.sender,saved.friends.join(','),saved.word);if(parsed.profile)profile=parsed.profile}}catch{}
+frames=buildStory(profile);
+const view=new ClusterView($('diagram'));
+const contexts={introduction:'First, the problem these servers need to solve.','leader-election':'Before saving the word, the group needs a coordinator.',persistence:'A leader is chosen. Now, what makes a save trustworthy?',failure:'The word is saved. Let’s test what happens when something breaks.',experiment:'Use what you learned. Send a word, interrupt a server, and watch.'};
+function fillSetup(){$('sender').value=profile.sender;$('friends').value=profile.friends.join(', ');$('word').value=profile.word}
+fillSetup();
+function saveProfile(){try{sessionStorage.setItem('raft-profile',JSON.stringify(profile))}catch{}}
+function frame(){return frames[index]}
+function stopAnimation(){transition=null;last=0;if(raf!==null)cancelAnimationFrame(raf);raf=null}
+function updateNav(){for(const a of document.querySelectorAll('[data-section]')){if(a.dataset.section===section)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')}}
+function setHash(){if(location.hash!==`#${section}`)history.replaceState(null,'',`#${section}`)}
+function showSection(id,{hash=true}={}){
+ if(!sections.some(s=>s.id===id))id='introduction';stopAnimation();section=id;
+ if(id==='experiment'){cluster=new Cluster({seeded:true,value:profile.word});playing=!reduced.matches;eventId=-1;render();if(playing)schedule()}
+ else{playing=false;index=frames.findIndex(f=>f.section===id);render()}
+ if(hash)setHash();
 }
-function resetClock() { elapsed = 0; previousTime = 0; }
-function setPlaying(value) {
-  playing = value;
-  previousTime = 0;
-  if (request !== null) cancelAnimationFrame(request);
-  request = null;
-  drawControls();
-  if (playing && !document.hidden) request = requestAnimationFrame(tick);
-  else drawPackets();
+function inspector(state){
+ if(!$('details').open)return;
+ const signature=JSON.stringify(state.nodes.map(n=>[n.term,n.role,n.log,n.applied,n.commit]));if(signature===inspectorSignature)return;inspectorSignature=signature;
+ $('inspector').innerHTML=state.nodes.map(n=>`<div><h3>${n.name}</h3><p>Term ${n.term} · ${n.role}<br>Agreed ${n.commit} · applied ${n.applied}</p>${n.log.length?n.log.map((e,i)=>`<span class="entry ${i>=n.applied?'pending':''}">${i+1}. ${esc(e.value)}<br>${i<n.applied?(e.accepted===false?'Version rejected':'Applied'):i<n.commit?'Agreed':'Stored'}</span>`).join(''):'<p>No log entries yet</p>'}</div>`).join('');
 }
-function drawControls() {
-  const final = index === scenarios[scenario].frames.length - 1;
-  $('play').innerHTML = playing ? 'Pause autoplay <span aria-hidden="true">Ⅱ</span>' : final ? 'Replay automatically <span aria-hidden="true">↻</span>' : index === 0 ? 'Play automatically <span aria-hidden="true">▶</span>' : 'Play automatically <span aria-hidden="true">▶</span>';
-  $('play').setAttribute('aria-label', playing ? 'Pause animation' : final ? 'Replay this scenario' : 'Play animation');
-  $('next').textContent = final ? 'Walkthrough complete' : index === 0 ? 'See what happens next →' : 'Next step →';
-  $('previous').disabled = index === 0;
-  $('next').disabled = final;
+function render(){
+ const experiment=section==='experiment',f=experiment?null:frame(),visual=transition?.previous||f;updateNav();
+ $('section-context').textContent=contexts[section];$('scene-title').textContent=experiment?'What happens if you change the conditions?':f.title;
+ const setup=!experiment&&index===0;
+ $('setup').hidden=!setup;$('opening-context').hidden=!setup;$('message-context').hidden=setup;
+ $('message-context-text').textContent=`${profile.sender} → ${profile.friends.join(', ')} · “${profile.word}”`;
+ $('story-controls').hidden=experiment;$('experiment-controls').hidden=!experiment;
+ if(experiment){renderExperiment();return}
+ $('explanation-text').textContent=setup?'Name your friends or use the examples above. Choose one word, then send it. We’ll follow what happens inside the servers, one step at a time.':f.text;
+ $('opening-context').textContent=frames[0].text;
+ $('diagram-label').textContent=visual.beforeRaft?'Before coordination · five separate copies':'Raft · five servers, one group';
+ $('diagram-status').textContent=visual.client.status;
+ $('majority').hidden=!visual.meter;if(visual.meter){$('majority-label').textContent=visual.meter.label;$('majority-value').textContent=visual.meter.value;$('majority-note').textContent=visual.meter.note}
+ $('previous').disabled=index===0||!!transition;$('next').disabled=!!transition;
+ $('next').textContent=transition?'Watch the exchange…':f.action+' →';
+ $('next').type=setup?'submit':'button';if(setup)$('next').setAttribute('form','setup');else $('next').removeAttribute('form');
+ $('replay').hidden=!f.messages.length;$('replay').disabled=!!transition;
+ view.render(visual,profile,{messages:f.messages,progress:transition?0:1,reduced:reduced.matches});inspector(visual);
+ $('detail-explanation').textContent=f.beforeRaft?'The introduction imagines copies that have not coordinated yet. It is the problem Raft will solve, not a demonstration of a successful Raft read.':'Follower, candidate, and leader are roles of the same computers. A stored proposal is not necessarily committed. A committed operation still has to be applied before it becomes the current message. Votes use log freshness checks, not the popularity of a server.';
 }
-function drawChapters() {
-  $('chapters').style.setProperty('--chapter-count', scenarios[scenario].chapters.length);
-  $('chapters').innerHTML = scenarios[scenario].chapters.map((name, i) =>
-    '<button class="chapter" data-chapter="' + i + '"><span>0' + (i + 1) + '</span>' + escape(name) + '</button>').join('');
+function animateTo(next){
+ const previous=structuredClone(frame());index=next;section=frame().section;setHash();
+ if(reduced.matches||!frame().messages.length){render();return}
+ transition={previous:exchangeStart(previous,frame()),elapsed:0};render();schedule();
 }
-function selectScenario(name) {
-  if (!scenarios[name]) return;
-  setPlaying(false);
-  scenario = name; index = 0; resetClock();
-  drawChapters(); render();
+// Starting an election or restarting is local; receiving a vote or a copy
+// takes effect only after its message has arrived.
+function exchangeStart(previous,current){return structuredClone(['candidate','reelection','request','restore'].includes(current.tag)?current:previous)}
+function advance(){if(transition)return;if(index===frames.length-1){showSection('experiment');return}animateTo(index+1)}
+function renderExperiment(){
+ $('scene-title').textContent='Try a change. See how the group responds.';
+ const reachable=cluster.nodes.filter(n=>n.online&&n.connected).length;
+ $('diagram-label').textContent='Select a circle to control that server';$('diagram-status').textContent=playing?'Running · messages slowed down':'Paused';
+ const latest=cluster.events[0];if(latest.id!==eventId){$('explanation-text').textContent=latest.text;eventId=latest.id}
+ $('majority').hidden=false;$('majority-label').textContent='Servers able to communicate';$('majority-value').textContent=`${reachable} of 5`;$('majority-note').textContent=reachable>=3?'3 needed to agree':'New saves must wait for a majority';
+ view.render({...cluster,showRoles:true,showLogs:false},profile,{interactive:true,messages:cluster.messages,progress:.5,reduced:reduced.matches});
+ $('pause').textContent=playing?'Pause':'Resume';$('stop-leader').disabled=!cluster.leader;$('restore-all').disabled=cluster.nodes.every(n=>n.online&&n.connected);$('send-word').disabled=!!cluster.client.pending;
+ const pending=cluster.client.pending;
+ $('experiment-feedback').textContent=pending?(reachable<3?'Waiting for a majority. Restore a server or its connection.':`Waiting for “${pending.value}” to be agreed and confirmed.`):`${cluster.client.status}: “${cluster.client.value}”.`;
+ const selected=cluster.nodes[Number($('selected-server').value)];
+ $('toggle-power').textContent=`${selected.online?'Stop':'Restart'} ${selected.name}`;$('toggle-network').textContent=`${selected.connected?'Disconnect':'Reconnect'} ${selected.name}`;
+ inspector(cluster);$('detail-explanation').textContent='Blue messages carry requests, copies, acknowledgments, and heartbeats. Amber carries votes. The label above the circles names the current exchange. If a server is disconnected, it may still believe it is leader until it hears a newer term; it cannot confirm a new write alone.';
 }
-function seek(next) {
-  setPlaying(false);
-  index = Math.max(0, Math.min(scenarios[scenario].frames.length - 1, next));
-  resetClock(); render();
+function schedule(){if(raf===null)raf=requestAnimationFrame(tick)}
+function tick(now){raf=null;if(document.hidden){last=0;return}
+ const dt=last?Math.min(80,now-last):0;last=now;
+ if(transition){transition.elapsed+=dt;const progress=Math.min(1,transition.elapsed/1800);view.render(transition.previous,profile,{messages:frame().messages,progress,reduced:reduced.matches});if(progress>=1){transition=null;last=0;render()}else schedule()}
+ else if(section==='experiment'&&playing){cluster.step(dt);renderExperiment();schedule()}
 }
-function serverFoot(n) {
-  if (!n.online) return 'Not responding';
-  if (n.log.length > n.applied) {
-    const last = n.log.at(-1);
-    if (n.commit > n.applied) return 'Applying the agreed history';
-    return 'Stored, not applied: ' + last.value;
-  }
-  if (n.role === 'Candidate') return 'Asking to coordinate the group';
-  if (n.role === 'Leader') return 'Coordinates changes for the app';
-  return n.applied ? 'Follows the agreed history' : current().nodes.some(peer => peer.online && peer.role === 'Leader') ? 'Ready to copy the leader' : 'Waiting for an elected leader';
-}
-
-function planIcon(value) {
-  return ({ Library: '📚', 'Café': '☕', Park: '🌳', Museum: '🏛' })[value] || '·';
-}
-function render() {
-  const f = current();
-  const teaching = presentation(f, scenario);
-  $('demo').dataset.level = teaching.level;
-  $('network').dataset.level = teaching.level;
-  $('agreement').hidden = teaching.level < 3 && f.tag !== 'election-rule';
-  $('demo').dataset.meter = String(!$('agreement').hidden);
-  $('network').setAttribute('aria-label', teaching.level === 0 ? 'Your unsaved plan in the app' : 'The app and its three servers in illustrative locations');
-  $('reading-guide').textContent = teaching.cue;
-  $('scenario-label').textContent = f.phase || scenarios[scenario].title;
-  $('back-to-story').hidden = scenario === 'story';
-  $('availability').textContent = teaching.level < 3 && f.tag !== 'election-rule' ? 'Three separate servers for the same app' : f.nodes.filter(n => n.online).length + ' of 3 online · majority needs 2';
-  $('client-request').textContent = f.client.request;
-  $('client-status').textContent = f.client.status;
-  $('client').dataset.status = f.client.kind;
-  $('network').dataset.kind = f.message?.kind || 'copy';
-  $('network').dataset.scenario = scenario;
-  const election = f.phase?.includes('election') || f.phase?.includes('Electing');
-  const showVotes = election || f.tag === 'initial-leader' || f.tag === 'new-leader';
-  const showWait = election || f.phase === 'Heartbeats' || f.phase === 'Detecting a failure' || f.tag === 'initial-leader' || f.tag === 'new-leader';
-  const latestTerm = Math.max(...f.nodes.map(n => n.term));
-  $('servers').innerHTML = f.nodes.map((n, i) => {
-    const active = f.message && (f.message.from === i || f.message.to.includes(i));
-    const work = showVotes && n.online
-      ? '<div class="vote-detail">' + (n.term < latestTerm ? 'Awaiting the vote request' : n.votedFor === null ? 'No vote cast yet' : '✓ Voted for ' + places[n.votedFor]) + '</div>'
-      : '<div class="server-foot"' + (teaching.level < 2 ? ' hidden' : '') + '>' + escape(serverFoot(n)) + '</div>';
-    const timer = showWait && n.online && n.role === 'Follower'
-      ? '<div class="election-wait"><span>Time before a new election</span><div class="wait-track" role="meter" aria-label="' + places[i] + ' election wait remaining" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(n.timer * 100) + '"><i style="width:' + (n.timer * 100) + '%"></i></div></div>' : '';
-    let appliedVersion = 0;
-    const history = n.log.length ? n.log.map(e => {
-      const applied = e.index <= n.applied;
-      const accepted = e.expected === appliedVersion;
-      if (applied && accepted) appliedVersion++;
-      const result = applied ? (accepted ? 'applied' : 'rejected') : e.index <= n.commit ? 'agreed' : 'stored';
-      return '<div class="history-entry" data-applied="' + applied + '" data-result="' + result + '"><span>' + e.index + '. ' + escape(e.value) + '</span><small>' + result + '</small></div>';
-    }).join('') : '<div class="history-empty">No changes stored yet</div>';
-    return '<article class="server" id="server-' + i + '" data-role="' + n.role + '" data-active="' + !!active + '" data-pending="' + (n.online && n.log.length > n.applied) + '" aria-label="' + places[i] + ', ' + n.role + ', ' + (n.online ? 'current plan ' : 'last known plan ') + (n.value ?? 'empty') + '">' +
-      '<div class="server-head"><span class="location"><span class="server-status-dot" aria-hidden="true"></span>' + places[i] + '</span><span class="role"' + (teaching.level < 2 ? ' hidden' : '') + '>' + n.role + '</span></div>' +
-      work + timer +
-      '<div class="value-label">' + (n.online ? 'CURRENT PLAN' : 'LAST KNOWN PLAN') + '</div>' +
-      '<div class="value-row"><span class="plan-symbol" aria-hidden="true">' + planIcon(n.value) + '</span><span class="server-value" data-empty="' + (n.value === null) + '">' + escape(n.value ?? 'Not saved yet') + '</span><span class="server-version">v' + n.version + '</span></div>' +
-      '<div class="server-history"' + (teaching.level < 4 ? ' hidden' : '') + '><span class="history-label">CHANGE LOG</span>' + history + '</div></article>';
-  }).join('');
-  $('step-number').textContent = String(f.chapter + 1).padStart(2, '0');
-  $('step-title').textContent = f.title;
-  $('step-text').textContent = f.text;
-  $('agreement-label').textContent = f.meter.label;
-  $('agreement-value').textContent = f.meter.value;
-  $('agreement-note').textContent = f.meter.note;
-  $('agreement').dataset.state = f.meter.blocked ? 'blocked' : 'ready';
-  $('message-caption').textContent = f.message?.label || '';
-  $('technical-note').textContent = f.technical;
-  $('logs').innerHTML = f.nodes.map((n, i) => '<section class="log-node"><h3>' + places[i] + (n.online ? '' : ' · offline') +
-    '</h3><p class="log-meta">Term ' + n.term + ' · committed ' + n.commit + ' · applied ' + n.applied + '</p><div class="log-entries">' +
-    (n.log.length ? n.log.map(e => {
-      const status = e.index <= n.applied ? 'applied' : e.index <= n.commit ? 'committed' : 'stored';
-      return '<span class="log-entry ' + status + '" title="Index ' + e.index + ', term ' + e.term + ', expects version ' + e.expected + ', ' + status + '">#' + e.index + ' · ' + e.value + ' / v' + e.expected + '</span>';
-    }).join('') : '<span class="log-empty">Empty log</span>') + '</div></section>').join('');
-  for (const button of $('chapters').querySelectorAll('button')) {
-    if (Number(button.dataset.chapter) === f.chapter) button.setAttribute('aria-current', 'step');
-    else button.removeAttribute('aria-current');
-  }
-  for (const button of document.querySelectorAll('[data-scenario]')) {
-    button.setAttribute('aria-pressed', String(button.dataset.scenario === scenario));
-  }
-  $('position').textContent = (index + 1) + ' / ' + scenarios[scenario].frames.length;
-  const progress = index / (scenarios[scenario].frames.length - 1) * 100;
-  $('progress').style.width = progress + '%';
-  $('timeline').setAttribute('aria-valuenow', String(Math.round(progress)));
-  $('timeline').setAttribute('aria-valuetext', f.title);
-  drawControls(); drawRoutes();
-}
-function endpoint(id) {
-  const network = $('network').getBoundingClientRect();
-  const rect = (id === 'client' ? $('client') : $('server-' + id)).getBoundingClientRect();
-  return { x: rect.left - network.left + rect.width / 2, y: (id === 'client' ? rect.bottom : rect.top) - network.top };
-}
-function curve(a, b, involvesClient) {
-  if (involvesClient) {
-    const mid = (a.y + b.y) / 2;
-    return 'M' + a.x + ',' + a.y + ' C' + a.x + ',' + mid + ' ' + b.x + ',' + mid + ' ' + b.x + ',' + b.y;
-  }
-  const rise = Math.min(80, Math.abs(a.x - b.x) * .22 + 30);
-  return 'M' + a.x + ',' + a.y + ' C' + a.x + ',' + (a.y - rise) + ' ' + b.x + ',' + (b.y - rise) + ' ' + b.x + ',' + b.y;
-}
-function drawRoutes() {
-  const g = $('routes'); g.replaceChildren(); routes = [];
-  const f = current();
-  if (presentation(f, scenario).level < 2) return;
-  for (const [a, b] of [[0, 1], [1, 2]]) {
-    g.append(svg('path', { d: curve(endpoint(a), endpoint(b), false), class: 'route-idle' }));
-  }
-  if (!f.message) return;
-  for (const destination of f.message.to) {
-    const path = svg('path', { d: curve(endpoint(f.message.from), endpoint(destination), f.message.from === 'client' || destination === 'client'), class: 'route', 'marker-end': 'url(#arrow)' });
-    const dot = svg('circle', { r: 5, class: 'message-dot' });
-    g.append(path, dot);
-    routes.push({ path, dot });
-  }
-  drawPackets();
-}
-function drawPackets() {
-  // A paused/manual step retains a readable static message; no independent CSS timers.
-  const progress = reducedMotion.matches ? .55 : Math.min(.98, playing || elapsed ? elapsed / 1500 : .55);
-  const eased = progress * progress * (3 - 2 * progress);
-  for (const { path, dot } of routes) {
-    const point = path.getPointAtLength(path.getTotalLength() * eased);
-    dot.setAttribute('cx', point.x); dot.setAttribute('cy', point.y);
-  }
-}
-function tick(now) {
-  request = null;
-  if (!playing || document.hidden) return;
-  if (previousTime) elapsed += Math.min(now - previousTime, 100) * speed;
-  previousTime = now;
-  if (elapsed >= readingDuration(current())) {
-    if (index < scenarios[scenario].frames.length - 1) {
-      index++; resetClock(); render();
-    } else { setPlaying(false); return; }
-  }
-  drawPackets();
-  request = requestAnimationFrame(tick);
-}
-
-$('play').addEventListener('click', () => {
-  if (index === scenarios[scenario].frames.length - 1 && !playing) { index = 0; resetClock(); render(); }
-  setPlaying(!playing);
-});
-$('previous').addEventListener('click', () => seek(index - 1));
-$('next').addEventListener('click', () => seek(index + 1));
-$('restart').addEventListener('click', () => seek(0));
-$('speed').addEventListener('change', event => { speed = Number(event.target.value); });
-$('chapters').addEventListener('click', event => {
-  const button = event.target.closest('[data-chapter]');
-  if (button) seek(chapterStart(scenarios[scenario].frames, Number(button.dataset.chapter)));
-});
-$('back-to-story').addEventListener('click', () => selectScenario('story'));
-for (const button of document.querySelectorAll('[data-scenario]')) {
-  button.addEventListener('click', () => {
-    selectScenario(button.dataset.scenario);
-    $('demo').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
-    $('next').focus({ preventScroll: true });
-  });
-}
-$('technical').addEventListener('toggle', () => { if ($('technical').open) setPlaying(false); });
-document.addEventListener('visibilitychange', () => {
-  previousTime = 0;
-  if (document.hidden) {
-    if (request !== null) cancelAnimationFrame(request);
-    request = null;
-  } else if (playing && request === null) request = requestAnimationFrame(tick);
-});
-reducedMotion.addEventListener('change', () => { setPlaying(false); drawPackets(); });
-new ResizeObserver(drawRoutes).observe($('network'));
-// Paused and fully explained on first load, including reduced-motion users.
-drawChapters(); render();
+$('setup').addEventListener('submit',e=>{e.preventDefault();const result=validateProfile($('sender').value,$('friends').value,$('word').value);$('setup-error').hidden=!result.error;if(result.error){$('setup-error').textContent=result.error;return}profile=result.profile;saveProfile();frames=buildStory(profile);advance()});
+$('next').addEventListener('click',()=>{if(index!==0)advance()});
+$('previous').addEventListener('click',()=>{if(!index)return;stopAnimation();index--;section=frame().section;setHash();render()});
+$('replay').addEventListener('click',()=>{if(transition||!index)return;if(reduced.matches){render();return}transition={previous:exchangeStart(frames[index-1],frame()),elapsed:0};render();schedule()});
+$('random-friends').addEventListener('click',()=>{const options=['Maya','Sam','Noor','Ari','Jules','Isha','Leo','Nina','Kai','Remy'];for(let i=options.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[options[i],options[j]]=[options[j],options[i]]}$('friends').value=options.slice(0,3).join(', ')});
+$('edit-message').addEventListener('click',()=>{showSection('introduction');$('word').focus()});
+for(const a of document.querySelectorAll('[data-section]'))a.addEventListener('click',e=>{e.preventDefault();showSection(a.dataset.section)});
+window.addEventListener('hashchange',()=>{if(location.hash!=='#main')showSection(location.hash.slice(1),{hash:false})});
+$('experiment-form').addEventListener('submit',e=>{e.preventDefault();const word=$('experiment-word').value.trim();if(!/^[\p{L}\p{M}\p{N}]{1,14}$/u.test(word)){$('experiment-feedback').textContent='Use one word of 1–14 letters or numbers.';return}cluster.save(word);renderExperiment()});
+$('pause').addEventListener('click',()=>{playing=!playing;last=0;renderExperiment();if(playing)schedule()});
+$('stop-leader').addEventListener('click',()=>{if(cluster.leader)cluster.toggle(cluster.leader.id);renderExperiment()});
+$('restore-all').addEventListener('click',()=>{for(const n of cluster.nodes){if(!n.online)cluster.toggle(n.id);if(!n.connected)cluster.disconnect(n.id)}renderExperiment()});
+$('reset').addEventListener('click',()=>showSection('experiment'));
+$('selected-server').addEventListener('change',renderExperiment);
+$('diagram').addEventListener('click',e=>{const b=e.target.closest('[data-server]');if(section==='experiment'&&b){$('selected-server').value=b.dataset.server;renderExperiment();$('toggle-power').focus({preventScroll:true})}});
+$('toggle-power').addEventListener('click',()=>{cluster.toggle(Number($('selected-server').value));renderExperiment()});
+$('toggle-network').addEventListener('click',()=>{cluster.disconnect(Number($('selected-server').value));renderExperiment()});
+$('details').addEventListener('toggle',()=>{if($('details').open){if(section==='experiment'){playing=false;renderExperiment()}inspector(section==='experiment'?cluster:frame())}});
+reduced.addEventListener('change',()=>{playing=false;stopAnimation();render()});
+document.addEventListener('visibilitychange',()=>{last=0;if(document.hidden){if(raf!==null)cancelAnimationFrame(raf);raf=null}else if(transition||(section==='experiment'&&playing))schedule()});
+showSection(location.hash.slice(1)||'introduction',{hash:false});

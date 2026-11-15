@@ -1,5 +1,9 @@
 # Local assets
 
+- `nunito-sans.ttf`: Nunito Sans variable font, distributed by Google Fonts
+  at https://github.com/google/fonts/tree/main/ofl/nunitosans.
+  SIL Open Font License 1.1, included as `nunito-sans-LICENSE.txt`.
+  This is the font used by the current interface.
 - `inter-variable.woff2`: Inter variable font from
   https://rsms.me/inter/font-files/InterVariable.woff2. SIL Open Font
   License 1.1, included as `inter-license.txt`.
@@ -13,8 +17,9 @@
   backdrop. Server cards represent illustrative regions, not real deployments.
 - `favicon.svg`: original mark for this demo.
 
-The site makes no external asset requests. Inter supplies the interface
-type; IBM Plex Mono distinguishes values, versions, and log entries.
+The site makes no external asset requests. Nunito Sans supplies the interface
+type. Inter, IBM Plex Mono, and the map are retained from earlier versions;
+the current page does not load them or display a geographic backdrop.
 
 Design research: https://raft.github.io/ (guided Raft explanation and optional
 log inspection), https://rsms.me/inter/ (interface typography), and

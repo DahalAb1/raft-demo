@@ -61,30 +61,41 @@ framework, CDN, or backend is needed. Preview it with:
 python3 -m http.server 8765 --bind 127.0.0.1 --directory docs
 ```
 
-Open <http://127.0.0.1:8765/>. The guided story starts paused and introduces
-a shared meeting plan: Library, then Café. It explains why there are three
-servers, demonstrates the first election and heartbeats, then follows
-replication, commitment, leader failure, another election, an update, and
-recovery. Each explanation appears before its diagram. Votes, qualitative
-election waits, stored history entries, and applied plans appear on the
-server cards only after the narration introduces them. The first scene shows
-just the app and its unsaved draft; the servers appear in the next scene.
-Next step is the primary control. Optional automatic playback gives longer
-explanations more reading time. Use Previous, named chapters, Restart,
-and playback speed to explore it. Opening “Technical details” pauses playback
-and reveals term, version, commit index, and applied index. Reduced-motion users
-get static message positions and can navigate every step manually.
+Open <http://127.0.0.1:8765/>. Visitors enter their name, up to three friends,
+and a one-word message. Names remain in browser session storage. Five circles
+represent the same five servers throughout a manually paced story:
 
-Three prominently displayed scenario choices let visitors explore one
-server failing, two servers failing, or two people editing the same plan.
-The two additional scenarios begin from an already-saved Café plan. The
-stale write is replicated and committed before the application
-rejects it. These scenarios are scripted illustrations, not execution of
-the Go implementation. They condense routing retries and heartbeats; the
-main story omits replicated reads. The browser uses meeting-place strings
-to explain the same versioned KV operations; the Go driver retains its
-numeric-string example.
-West, Central, and East are illustrative locations, not deployed regions.
+1. **Introduction:** different servers can hold different copies before they
+   coordinate. A friend may reach a server that has not received the message.
+2. **Leader Election:** introduce the roles, then show a candidate's self-vote,
+   incoming votes, a majority of three, and the new leader's heartbeats.
+3. **Persistence:** follow recording, replication, acknowledgments, commitment,
+   application, and confirmation. Explain why majorities overlap and how the
+   election's history check protects confirmed changes.
+4. **Hardware / Network Failure:** lose the leader, elect a replacement, lose
+   a second server, then isolate a running server. Restore the group and replay
+   retained history to rebuild the restarted servers' current state.
+5. **Experiment:** submit words, stop or restart any server, disconnect or
+   reconnect its network, pause, restore the group, or reset.
+
+The navigation can open any section directly. Back and Replay revisit the
+guided exchanges. Each step has one explanation and a labeled message animation;
+the visitor decides when to continue. “A closer look” reveals logs, terms,
+commit/application positions, and the model's limitations. It pauses the live
+experiment. Reduced-motion preference removes guided motion and starts the
+experiment paused. The old `explore.html` URL redirects to `#experiment`.
+
+The story uses scripted snapshots; the experiment runs an independent JavaScript
+model. Neither executes the Go implementation. The model uses five fixed members,
+randomized elections, log freshness checks, current-term majority commitment,
+ordered application, and restarts with retained in-memory logs. Links have slowed
+delivery; each server can be isolated from the rest of the group. It does not
+model arbitrary partitions, replicated reads, or snapshots. One UI submission
+runs at a time; request identities deduplicate retries for clarity. That differs
+from the real Clerk's version/ErrMaybe path. The Go driver retains its original
+three-server, numeric-string example.
+
+West, Central, East, North, and South are illustrative names, not deployed regions.
 
 GitHub Pages is configured to publish **`main` → `/docs`**, at
 <https://dahalab1.github.io/raft-demo/>. Commit and push the complete `docs/`
@@ -94,14 +105,16 @@ or separate deployment command is needed.
 ## Verification
 
 ```sh
-node --test tests/story.test.mjs
+node --test tests/*.test.mjs
 go test -race ./...
 go run -race .
 ```
 
-The Node checks validate all scenario snapshots, majority evidence,
-ordered application, stale-write rejection, chapter navigation data, and
-local asset references. The Go integration test verifies a real crash,
+The Node checks validate story snapshots, majority evidence, confirmation order,
+recovery, personalization, navigation data, and local asset references. The
+cluster tests cover 40 election schedules, failure at multiple write stages,
+majority loss, recovery, stale writes, delayed replication requests, and isolated
+leaders rejoining the group. The Go integration test verifies a real crash,
 an update during the outage, and reconstruction on the restarted replica.
 These checks are not a substitute for the excluded course harness or a
 general Raft correctness proof.
@@ -124,10 +137,16 @@ main.go
     the narrated, checked scenario
 
 docs/index.html, docs/style.css, docs/app.mjs, docs/story.mjs
-    page structure, responsive styling, playback, and scripted states
+    unified page, responsive styling, controls, and personalized story snapshots
+
+docs/explore.html
+    redirect for the previous experiment URL
+
+docs/cluster.mjs, docs/cluster-view.mjs
+    independent teaching model and server/message visualization
 
 docs/assets/
-    bundled fonts, licenses, map, and asset provenance
+    bundled fonts, licenses, and asset provenance
 ```
 
 ## Honesty notes
